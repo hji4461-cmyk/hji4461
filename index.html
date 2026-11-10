@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>우리 편의점 급여 계산기</title>
+<style>
+  :root {
+    --bg: #f6f3ee;
+    --card: #ffffff;
+    --mint: #dff1ea;
+    --mint-dark: #2f7a63;
+    --peach: #fde8dc;
+    --peach-dark: #b4532a;
+    --lav: #ebe7f7;
+    --ink: #2b2b33;
+    --muted: #77768a;
+    --line: #ece8e1;
+    --money: #1f5a4a;
+    --danger: #c0453a;
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    padding-bottom: 88px;
+    word-break: keep-all;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 4px 0 12px; }
+  h2 { font-size: 18px; margin: 0 0 12px; }
+  h3 { font-size: 16px; margin: 16px 0 8px; }
+
+  /* 월 선택 */
+  .month-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--card); border-radius: var(--radius); padding: 6px; margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  }
+  .month-bar .label { font-size: 18px; font-weight: 700; }
+  .month-bar button { min-width: 48px; }
+
+  /* 합계 카드 */
+  .total-card {
+    background: linear-gradient(135deg, var(--mint), var(--lav));
+    border-radius: var(--radius); padding: 20px; margin-bottom: 16px;
+  }
+  .total-card .t-label { color: var(--muted); font-size: 15px; }
+  .total-card .t-money { font-size: 34px; font-weight: 800; color: var(--money); letter-spacing: -0.5px; }
+  .total-card .t-sub { color: var(--muted); font-size: 14px; }
+
+  .card {
+    background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  }
+  .emp-card { cursor: pointer; }
+  .emp-card .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .emp-card .name { font-size: 18px; font-weight: 700; }
+  .emp-card .money { font-size: 26px; font-weight: 800; color: var(--money); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip { background: var(--bg); border-radius: 999px; padding: 4px 10px; font-size: 13px; color: var(--muted); }
+  .chip b { color: var(--ink); }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 8px; }
+
+  .detail { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 8px; cursor: default; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 8px 4px; border-bottom: 1px solid var(--line); text-align: left; }
+  th { color: var(--muted); font-weight: 600; }
+  td.num, th.num { text-align: right; }
+  td.money-cell { text-align: right; font-weight: 800; color: var(--money); }
+  tr.excluded td { color: var(--muted); }
+
+  /* 폼 */
+  label { display: block; font-size: 14px; color: var(--muted); margin: 10px 0 4px; }
+  input, select {
+    width: 100%; font: inherit; padding: 10px 12px; min-height: 44px;
+    border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--ink);
+  }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  button {
+    font: inherit; min-height: 44px; padding: 0 16px; border-radius: 12px; border: none; cursor: pointer;
+    background: var(--bg); color: var(--ink);
+  }
+  button.primary { background: var(--mint-dark); color: #fff; font-weight: 700; width: 100%; margin-top: 14px; }
+  button.ghost { background: transparent; border: 1px solid var(--line); }
+  button.small { min-height: 36px; padding: 0 10px; font-size: 14px; }
+  button.danger { color: var(--danger); }
+  .preview { margin-top: 10px; padding: 10px 12px; background: var(--mint); border-radius: 12px; font-weight: 700; color: var(--mint-dark); }
+  .error { color: var(--danger); font-size: 14px; margin-top: 8px; min-height: 1em; }
+  .list-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .list-item:last-child { border-bottom: none; }
+  .list-item .actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .empty { text-align: center; color: var(--muted); padding: 24px 8px; }
+
+  /* 하단 탭 */
+  nav.tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid var(--line);
+    display: grid; grid-template-columns: repeat(4, 1fr); padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+  }
+  nav.tabs button { background: transparent; font-size: 14px; white-space: nowrap; padding: 0 4px; color: var(--muted); border-radius: 12px; }
+  nav.tabs button.on { background: var(--mint); color: var(--mint-dark); font-weight: 700; }
+  .page { display: none; }
+  .page.on { display: block; }
+
+  /* 급여명세서 */
+  .payslip-overlay {
+    display: none; position: fixed; inset: 0; background: var(--bg); z-index: 1000;
+    overflow-y: auto; padding: 16px;
+  }
+  .payslip-overlay.show { display: block; }
+  .payslip-overlay .wrap { max-width: 640px; padding: 0; }
+  .payslip-bar { display: flex; gap: 8px; margin-bottom: 14px; }
+  .payslip-bar button { flex: 1; }
+  .payslip-doc {
+    background: var(--card); border-radius: var(--radius); padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  }
+  .payslip-doc h2 { text-align: center; font-size: 20px; margin-bottom: 2px; }
+  .payslip-doc .ps-period { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 18px; }
+  .payslip-doc .ps-row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .payslip-doc .ps-row span:first-child { color: var(--muted); }
+  .payslip-doc .ps-row span:last-child { text-align: right; font-weight: 600; }
+  .payslip-doc h3 { margin-top: 20px; }
+  .payslip-doc .ps-net { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 14px; border-top: 2px solid var(--ink); }
+  .payslip-doc .ps-net .label { font-weight: 700; }
+  .payslip-doc .ps-net .amount { font-size: 26px; font-weight: 800; color: var(--money); }
+
+  @media print {
+    body * { visibility: hidden; }
+    .payslip-overlay, .payslip-overlay * { visibility: visible; }
+    .payslip-overlay { position: absolute; top: 0; left: 0; width: 100%; padding: 0; background: #fff; }
+    .payslip-bar { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🏪 우리 편의점 급여 계산기</h1>
+
+  <div class="month-bar">
+    <button id="prevMonth" aria-label="이전 달">◀</button>
+    <div class="label" id="monthLabel"></div>
+    <button id="nextMonth" aria-label="다음 달">▶</button>
+  </div>
+
+  <!-- 요약 -->
+  <section class="page on" id="page-summary">
+    <div class="total-card">
+      <div class="t-label">이번 달 전체 인건비</div>
+      <div class="t-money" id="grandTotal">0원</div>
+      <div class="t-sub" id="grandSub"></div>
+    </div>
+    <div id="empCards"></div>
+  </section>
+
+  <!-- 근무 입력 -->
+  <section class="page" id="page-work">
+    <div class="card">
+      <h2 id="workFormTitle">근무 기록 입력</h2>
+      <label for="wEmp">직원</label>
+      <select id="wEmp"></select>
+      <label for="wDate">날짜</label>
+      <input type="date" id="wDate">
+      <div class="row2">
+        <div>
+          <label for="wStart">출근 시각</label>
+          <input type="time" id="wStart" value="09:00">
+        </div>
+        <div>
+          <label for="wEnd">퇴근 시각</label>
+          <input type="time" id="wEnd" value="15:00">
+        </div>
+      </div>
+      <div class="preview" id="wPreview"></div>
+      <div class="error" id="wError"></div>
+      <button class="primary" id="wSave">저장하기</button>
+      <button class="ghost" id="wCancel" style="width:100%;margin-top:8px;display:none">수정 취소</button>
+    </div>
+    <div class="card">
+      <h2 id="workListTitle">이번 달 근무 기록</h2>
+      <div id="workList"></div>
+    </div>
+  </section>
+
+  <!-- 직원 -->
+  <section class="page" id="page-emp">
+    <div class="card">
+      <h2 id="empFormTitle">직원 등록</h2>
+      <label for="eName">이름</label>
+      <input type="text" id="eName" placeholder="예: 김민지">
+      <label for="eWage">기본 시급 (원)</label>
+      <input type="number" id="eWage" inputmode="numeric" min="1" step="10">
+      <div class="error" id="eError"></div>
+      <button class="primary" id="eSave">직원 등록하기</button>
+      <button class="ghost" id="eCancel" style="width:100%;margin-top:8px;display:none">수정 취소</button>
+    </div>
+    <div class="card">
+      <h2>등록된 직원</h2>
+      <div id="empList"></div>
+    </div>
+  </section>
+
+  <!-- 설정 -->
+  <section class="page" id="page-set">
+    <div class="card">
+      <h2>최저임금 확인</h2>
+      <div id="minWageBox"></div>
+    </div>
+    <div class="card">
+      <h2>계산 방법 안내</h2>
+      <p class="hint" style="font-size:14px">
+        · 근무시간 = 퇴근 − 출근 (퇴근이 더 이르면 다음 날 퇴근으로 계산)<br>
+        · 주휴수당은 매달 4주분: 1~7일, 8~14일, 15~21일, 22~28일<br>
+        · 주 15시간 이상이면 (주 근무시간 ÷ 40) × 8 × 기본 시급, 최대 8시간분<br>
+        · 29일 이후 근무는 급여에는 들어가고 주휴 계산에서는 빠져요<br>
+        · 금액은 원 단위 미만 버림, 세금 공제 전 금액이에요
+      </p>
+      <p class="hint" style="font-size:14px">
+        ⚠️ 기록은 이 기기의 이 브라우저에만 저장돼요. 브라우저 방문 기록·사이트 데이터를 지우면 기록도 함께 지워질 수 있어요.
+      </p>
+    </div>
+  </section>
+</div>
+
+<div class="payslip-overlay" id="payslipOverlay">
+  <div class="wrap">
+    <div class="payslip-bar">
+      <button class="ghost" id="payslipClose">◀ 닫기</button>
+      <button class="primary" style="margin-top:0" id="payslipPrint">🖨 인쇄 / PDF 저장</button>
+    </div>
+    <div class="payslip-doc" id="payslipDoc"></div>
+  </div>
+</div>
+
+<nav class="tabs">
+  <button data-page="summary" class="on">요약</button>
+  <button data-page="work">근무 입력</button>
+  <button data-page="emp">직원</button>
+  <button data-page="set">설정</button>
+</nav>
+
+<script>
+/* ===== 계산 함수 (화면과 분리) ===== */
+function toMin(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+// 근무 분: 퇴근이 출근보다 이르면 다음 날 퇴근. 같으면 null(입력 오류)
+function workMinutes(start, end) {
+  const s = toMin(start); let e = toMin(end);
+  if (e === s) return null;
+  if (e < s) e += 1440;
+  return e - s;
+}
+// 일(day) → 주차 번호 0~3, 29일 이후는 -1(주휴 제외)
+function weekIndex(day) {
+  return day <= 28 ? Math.floor((day - 1) / 7) : -1;
+}
+// 주휴수당: 15시간(900분) 이상이면 (분 ÷ 2400) × 8시간 × 시급, 40시간 상한
+function weeklyHolidayPay(minutes, wage) {
+  if (minutes < 900) return 0;
+  return Math.floor(Math.min(minutes, 2400) * wage / 300);
+}
+// 한 직원의 한 달 급여 계산
+function calcMonth(emp, records, year, month) {
+  const prefix = `${year}-${String(month).padStart(2, '0')}-`;
+  const mine = records
+    .filter(r => r.empId === emp.id && r.date.startsWith(prefix))
+    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+  const weeks = [0, 0, 0, 0];
+  let totalMin = 0, afterMin = 0;
+  for (const r of mine) {
+    const m = workMinutes(r.start, r.end);
+    if (m === null) continue;
+    totalMin += m;
+    const wi = weekIndex(Number(r.date.slice(8, 10)));
+    if (wi >= 0) weeks[wi] += m; else afterMin += m;
+  }
+  const basePay = Math.floor(totalMin * emp.wage / 60);
+  const weekPays = weeks.map(m => weeklyHolidayPay(m, emp.wage));
+  const holidayPay = weekPays.reduce((a, b) => a + b, 0);
+  return {
+    records: mine, totalMin, afterMin, weeks, weekPays,
+    basePay, holidayPay, total: basePay + holidayPay
+  };
+}
+
+/* ===== 저장 ===== */
+const STORE_KEY = 'convenience-payroll-v1';
+const DEFAULT_DATA = { employees: [], records: [] };
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return structuredClone(DEFAULT_DATA);
+    const d = JSON.parse(raw);
+    return { employees: d.employees || [], records: d.records || [] };
+  } catch (e) { return structuredClone(DEFAULT_DATA); }
+}
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+  catch (e) { alert('저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.'); }
+}
+let data = load();
+
+/* ===== 화면 도우미 ===== */
+const $ = id => document.getElementById(id);
+const won = n => n.toLocaleString('ko-KR') + '원';
+function hm(min) {
+  const h = Math.floor(min / 60), m = min % 60;
+  if (h && m) return `${h}시간 ${m}분`;
+  if (h || !m) return `${h}시간`;
+  return `${m}분`;
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+// 연도별 법정 최저시급. 새 연도가 고시되면 이 표에 한 줄만 추가하면 됨.
+const MIN_WAGE_BY_YEAR = { 2026: 10320, 2027: 10700 };
+function minWageForYear(year) {
+  const years = Object.keys(MIN_WAGE_BY_YEAR).map(Number).sort((a, b) => a - b);
+  let best = years[0];
+  for (const y of years) if (y <= year) best = y;
+  return MIN_WAGE_BY_YEAR[best];
+}
+const WEEK_LABEL = ['1주차 (1~7일)', '2주차 (8~14일)', '3주차 (15~21일)', '4주차 (22~28일)'];
+const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+function dateLabel(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return `${d.getMonth() + 1}/${d.getDate()} (${DOW[d.getDay()]})`;
+}
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/* ===== 상태 ===== */
+const now = new Date();
+let curY = now.getFullYear(), curM = now.getMonth() + 1;
+let openDetail = null;     // 펼친 직원 id
+let editingWork = null;    // 수정 중인 근무 기록 id
+let editingEmp = null;     // 수정 중인 직원 id
+
+/* ===== 탭 ===== */
+document.querySelectorAll('nav.tabs button').forEach(b => {
+  b.addEventListener('click', () => showPage(b.dataset.page));
+});
+function showPage(p) {
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.page === p));
+  document.querySelectorAll('.page').forEach(s => s.classList.toggle('on', s.id === 'page-' + p));
+  window.scrollTo(0, 0);
+}
+
+/* ===== 월 이동 ===== */
+$('prevMonth').onclick = () => { curM--; if (curM < 1) { curM = 12; curY--; } renderAll(); };
+$('nextMonth').onclick = () => { curM++; if (curM > 12) { curM = 1; curY++; } renderAll(); };
+
+/* ===== 요약 ===== */
+function renderSummary() {
+  $('monthLabel').textContent = `${curY}년 ${curM}월`;
+  const box = $('empCards');
+  if (!data.employees.length) {
+    $('grandTotal').textContent = won(0);
+    $('grandSub').textContent = '';
+    box.innerHTML = `<div class="card empty">아직 등록된 직원이 없어요.<br>아래 <b>직원</b> 탭에서 먼저 등록해 주세요.</div>`;
+    return;
+  }
+  let grand = 0, grandMin = 0;
+  const html = data.employees.map(emp => {
+    const r = calcMonth(emp, data.records, curY, curM);
+    grand += r.total; grandMin += r.totalMin;
+    const isOpen = openDetail === emp.id;
+    let detail = '';
+    if (isOpen) {
+      const weekRows = r.weeks.map((m, i) => `
+        <tr><td>${WEEK_LABEL[i]}</td><td class="num">${hm(m)}</td>
+        <td class="money-cell">${r.weekPays[i] ? won(r.weekPays[i]) : (m ? '<span style="color:var(--muted);font-weight:400">15시간 미만</span>' : '0원')}</td></tr>`).join('');
+      const afterRow = r.afterMin ? `<tr class="excluded"><td>29일 이후</td><td class="num">${hm(r.afterMin)}</td><td class="num">주휴 제외</td></tr>` : '';
+      const recRows = r.records.length ? r.records.map(rec => {
+        const m = workMinutes(rec.start, rec.end);
+        return `<tr><td>${dateLabel(rec.date)}</td><td>${rec.start} ~ ${rec.end}</td><td class="num">${m === null ? '-' : hm(m)}</td></tr>`;
+      }).join('') : `<tr><td colspan="3" class="empty">이번 달 근무 기록이 없어요</td></tr>`;
+      detail = `
+        <div class="detail" onclick="event.stopPropagation()">
+          <h3>금액 내역</h3>
+          <table>
+            <tr><td>기본 급여 (${hm(r.totalMin)} × ${won(emp.wage)})</td><td class="money-cell">${won(r.basePay)}</td></tr>
+            <tr><td>주휴수당 합계</td><td class="money-cell">${won(r.holidayPay)}</td></tr>
+          </table>
+          <h3>주차별 근무시간 · 주휴수당</h3>
+          <table>
+            <tr><th>주차</th><th class="num">근무</th><th class="num">주휴수당</th></tr>
+            ${weekRows}${afterRow}
+          </table>
+          ${r.afterMin ? '<div class="hint">29일 이후 근무는 급여에는 들어가고 주휴 계산에서는 빠져요.</div>' : ''}
+          <h3>날짜별 근무 기록</h3>
+          <table>
+            <tr><th>날짜</th><th>시간</th><th class="num">근무</th></tr>
+            ${recRows}
+          </table>
+          <button class="ghost" style="width:100%;margin-top:14px" data-payslip="${emp.id}">📄 급여명세서 발급</button>
+        </div>`;
+    }
+    return `
+      <div class="card emp-card" data-emp="${emp.id}">
+        <div class="top">
+          <div class="name">${esc(emp.name)}</div>
+          <div class="money">${won(r.total)}</div>
+        </div>
+        <div class="chips">
+          <span class="chip">근무 <b>${hm(r.totalMin)}</b></span>
+          <span class="chip">기본 <b>${won(r.basePay)}</b></span>
+          <span class="chip">주휴 <b>${won(r.holidayPay)}</b></span>
+        </div>
+        ${isOpen ? detail : '<div class="hint">눌러서 자세히 보기 ▾</div>'}
+      </div>`;
+  }).join('');
+  box.innerHTML = html;
+  $('grandTotal').textContent = won(grand);
+  $('grandSub').textContent = `직원 ${data.employees.length}명 · 총 근무 ${hm(grandMin)} · 세전 금액`;
+  box.querySelectorAll('.emp-card').forEach(c => {
+    c.addEventListener('click', () => {
+      openDetail = openDetail === c.dataset.emp ? null : c.dataset.emp;
+      renderSummary();
+    });
+  });
+  box.querySelectorAll('[data-payslip]').forEach(b => {
+    b.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      openPayslip(b.dataset.payslip);
+    });
+  });
+}
+
+/* ===== 근무 입력 ===== */
+function renderWorkForm() {
+  const sel = $('wEmp');
+  const prev = sel.value;
+  sel.innerHTML = data.employees.length
+    ? data.employees.map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join('')
+    : '<option value="">먼저 직원을 등록해 주세요</option>';
+  if (data.employees.some(e => e.id === prev)) sel.value = prev;
+  if (!$('wDate').value) $('wDate').value = todayISO();
+  updatePreview();
+  renderWorkList();
+}
+function updatePreview() {
+  const s = $('wStart').value, e = $('wEnd').value;
+  if (!s || !e) { $('wPreview').textContent = '출근·퇴근 시각을 입력해 주세요'; return; }
+  const m = workMinutes(s, e);
+  if (m === null) { $('wPreview').textContent = '출근과 퇴근 시각이 같아요'; return; }
+  const next = toMin(e) < toMin(s) ? ' (다음 날 퇴근)' : '';
+  $('wPreview').textContent = `근무시간: ${hm(m)}${next}`;
+}
+['wStart', 'wEnd'].forEach(id => $(id).addEventListener('input', updatePreview));
+$('wEmp').addEventListener('change', renderWorkList);
+
+$('wSave').onclick = () => {
+  const empId = $('wEmp').value, date = $('wDate').value, start = $('wStart').value, end = $('wEnd').value;
+  $('wError').textContent = '';
+  if (!empId) { $('wError').textContent = '먼저 직원 탭에서 직원을 등록해 주세요.'; return; }
+  if (!date) { $('wError').textContent = '날짜를 입력해 주세요.'; return; }
+  if (!start || !end) { $('wError').textContent = '출근·퇴근 시각을 입력해 주세요.'; return; }
+  if (workMinutes(start, end) === null) { $('wError').textContent = '출근과 퇴근 시각이 같아요. 다시 확인해 주세요.'; return; }
+  if (editingWork) {
+    const r = data.records.find(x => x.id === editingWork);
+    if (r) Object.assign(r, { empId, date, start, end });
+  } else {
+    data.records.push({ id: uid(), empId, date, start, end });
+  }
+  save();
+  // 저장한 날짜의 달로 이동해서 바로 보이게
+  curY = Number(date.slice(0, 4)); curM = Number(date.slice(5, 7));
+  endWorkEdit();
+  renderAll();
+  $('wPreview').textContent = '✅ 저장했어요! ' + $('wPreview').textContent.replace('✅ 저장했어요! ', '');
+};
+$('wCancel').onclick = () => { endWorkEdit(); renderWorkForm(); };
+function endWorkEdit() {
+  editingWork = null;
+  $('workFormTitle').textContent = '근무 기록 입력';
+  $('wSave').textContent = '저장하기';
+  $('wCancel').style.display = 'none';
+}
+function renderWorkList() {
+  const empId = $('wEmp').value;
+  const emp = data.employees.find(e => e.id === empId);
+  $('workListTitle').textContent = emp ? `${emp.name} · ${curY}년 ${curM}월 근무 기록` : '이번 달 근무 기록';
+  const box = $('workList');
+  if (!emp) { box.innerHTML = '<div class="empty">직원을 먼저 등록해 주세요</div>'; return; }
+  const prefix = `${curY}-${String(curM).padStart(2, '0')}-`;
+  const list = data.records.filter(r => r.empId === empId && r.date.startsWith(prefix))
+    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+  if (!list.length) { box.innerHTML = '<div class="empty">이번 달 근무 기록이 없어요</div>'; return; }
+  box.innerHTML = list.map(r => `
+    <div class="list-item">
+      <div><b>${dateLabel(r.date)}</b> ${r.start} ~ ${r.end}<br><span class="hint" style="margin:0">${hm(workMinutes(r.start, r.end) || 0)}</span></div>
+      <div class="actions">
+        <button class="small ghost" data-edit-work="${r.id}">수정</button>
+        <button class="small ghost danger" data-del-work="${r.id}">삭제</button>
+      </div>
+    </div>`).join('');
+  box.querySelectorAll('[data-edit-work]').forEach(b => b.onclick = () => {
+    const r = data.records.find(x => x.id === b.dataset.editWork);
+    editingWork = r.id;
+    $('wEmp').value = r.empId; $('wDate').value = r.date; $('wStart').value = r.start; $('wEnd').value = r.end;
+    $('workFormTitle').textContent = '근무 기록 수정';
+    $('wSave').textContent = '수정 저장하기';
+    $('wCancel').style.display = 'block';
+    $('wError').textContent = '';
+    updatePreview();
+    window.scrollTo(0, 0);
+  });
+  box.querySelectorAll('[data-del-work]').forEach(b => b.onclick = () => {
+    const r = data.records.find(x => x.id === b.dataset.delWork);
+    if (!confirm(`${dateLabel(r.date)} ${r.start}~${r.end} 근무 기록을 정말 삭제할까요?`)) return;
+    data.records = data.records.filter(x => x.id !== r.id);
+    if (editingWork === r.id) endWorkEdit();
+    save(); renderAll();
+  });
+}
+
+/* ===== 직원 ===== */
+$('eSave').onclick = () => {
+  const name = $('eName').value.trim();
+  const wage = Number($('eWage').value);
+  $('eError').textContent = '';
+  if (!name) { $('eError').textContent = '이름을 입력해 주세요.'; return; }
+  if (!(wage > 0)) { $('eError').textContent = '시급은 0원보다 커야 해요.'; return; }
+  if (editingEmp) {
+    const e = data.employees.find(x => x.id === editingEmp);
+    if (e) Object.assign(e, { name, wage: Math.floor(wage) });
+  } else {
+    data.employees.push({ id: uid(), name, wage: Math.floor(wage) });
+  }
+  save();
+  endEmpEdit();
+  renderAll();
+};
+$('eCancel').onclick = () => { endEmpEdit(); };
+function endEmpEdit() {
+  editingEmp = null;
+  $('eName').value = ''; $('eWage').value = minWageForYear(new Date().getFullYear());
+  $('empFormTitle').textContent = '직원 등록';
+  $('eSave').textContent = '직원 등록하기';
+  $('eCancel').style.display = 'none';
+  $('eError').textContent = '';
+}
+function renderEmpList() {
+  const box = $('empList');
+  if (!data.employees.length) { box.innerHTML = '<div class="empty">아직 등록된 직원이 없어요</div>'; return; }
+  box.innerHTML = data.employees.map(e => `
+    <div class="list-item">
+      <div><b>${esc(e.name)}</b><br><span class="hint" style="margin:0">시급 ${won(e.wage)}</span></div>
+      <div class="actions">
+        <button class="small ghost" data-edit-emp="${e.id}">수정</button>
+        <button class="small ghost danger" data-del-emp="${e.id}">삭제</button>
+      </div>
+    </div>`).join('');
+  box.querySelectorAll('[data-edit-emp]').forEach(b => b.onclick = () => {
+    const e = data.employees.find(x => x.id === b.dataset.editEmp);
+    editingEmp = e.id;
+    $('eName').value = e.name; $('eWage').value = e.wage;
+    $('empFormTitle').textContent = '직원 정보 수정';
+    $('eSave').textContent = '수정 저장하기';
+    $('eCancel').style.display = 'block';
+    window.scrollTo(0, 0);
+  });
+  box.querySelectorAll('[data-del-emp]').forEach(b => b.onclick = () => {
+    const e = data.employees.find(x => x.id === b.dataset.delEmp);
+    const n = data.records.filter(r => r.empId === e.id).length;
+    const msg = n ? `${e.name} 직원을 정말 삭제할까요?\n근무 기록 ${n}건도 함께 삭제돼요.` : `${e.name} 직원을 정말 삭제할까요?`;
+    if (!confirm(msg)) return;
+    data.employees = data.employees.filter(x => x.id !== e.id);
+    data.records = data.records.filter(r => r.empId !== e.id);
+    if (editingEmp === e.id) endEmpEdit();
+    if (openDetail === e.id) openDetail = null;
+    save(); renderAll();
+  });
+}
+
+/* ===== 설정 ===== */
+function renderSettings() {
+  renderMinWageBanner();
+}
+function renderMinWageBanner() {
+  const curMin = minWageForYear(new Date().getFullYear());
+  const box = $('minWageBox');
+  const diff = data.employees.filter(e => e.wage !== curMin);
+  if (!data.employees.length) {
+    box.innerHTML = `<p class="hint">올해 최저시급은 <b>${won(curMin)}</b>이에요. 직원을 등록하면 기본값으로 반영돼요.</p>`;
+    return;
+  }
+  if (!diff.length) {
+    box.innerHTML = `<p class="hint">올해 최저시급은 <b>${won(curMin)}</b>이에요. 모든 직원이 이미 최저시급과 같아요.</p>`;
+    return;
+  }
+  box.innerHTML = `
+    <p class="hint">올해 최저시급은 <b>${won(curMin)}</b>이에요. 아래 ${diff.length}명이 최저시급과 달라요.</p>
+    <div>${diff.map(e => `<div class="list-item"><div>${esc(e.name)}<br><span class="hint" style="margin:0">${won(e.wage)} → ${won(curMin)}</span></div></div>`).join('')}</div>
+    <button class="primary" id="minWageApply">${diff.length}명 전부 최저시급 ${won(curMin)}으로 통일</button>
+  `;
+  $('minWageApply').onclick = () => {
+    if (!confirm(`${diff.map(e => e.name).join(', ')} 직원의 시급을 모두 ${won(curMin)}으로 바꿀까요?`)) return;
+    diff.forEach(e => {
+      const emp = data.employees.find(x => x.id === e.id);
+      if (emp) emp.wage = curMin;
+    });
+    save(); renderAll();
+  };
+}
+
+/* ===== 급여명세서 ===== */
+function openPayslip(empId) {
+  const emp = data.employees.find(e => e.id === empId);
+  if (!emp) return;
+  const r = calcMonth(emp, data.records, curY, curM);
+  const items = [
+    `<div class="ps-row"><span>기본급 (${hm(r.totalMin)} × ${won(emp.wage)})</span><span>${won(r.basePay)}</span></div>`,
+    `<div class="ps-row"><span>주휴수당</span><span>${won(r.holidayPay)}</span></div>`
+  ];
+  $('payslipDoc').innerHTML = `
+    <h2>급여명세서</h2>
+    <div class="ps-period">${curY}년 ${curM}월분 · 발급일 ${todayISO()}</div>
+    <div class="ps-row"><span>사업장명</span><span>우리 편의점</span></div>
+    <div class="ps-row"><span>성명</span><span>${esc(emp.name)}</span></div>
+    <div class="ps-row"><span>근무기간</span><span>${curY}년 ${curM}월 1일 ~ 말일</span></div>
+    <div class="ps-row"><span>총 근무시간</span><span>${hm(r.totalMin)}</span></div>
+    <div class="ps-row"><span>통상시급</span><span>${won(emp.wage)}</span></div>
+    <h3>지급 내역</h3>
+    ${items.join('')}
+    <h3>공제 내역</h3>
+    <div class="ps-row"><span>고용·산재보험 등</span><span>0원 (사업주 부담)</span></div>
+    <div class="ps-net">
+      <span class="label">실지급액</span>
+      <span class="amount">${won(r.total)}</span>
+    </div>
+    <p class="hint" style="margin-top:16px">※ 세전 기준이며, 4대보험 중 사업주 부담분(고용·산재보험)은 직원에게 공제하지 않습니다. 교부 전 금액을 다시 확인해 주세요.</p>
+  `;
+  $('payslipOverlay').classList.add('show');
+  window.scrollTo(0, 0);
+}
+function closePayslip() {
+  $('payslipOverlay').classList.remove('show');
+}
+$('payslipClose').onclick = closePayslip;
+$('payslipPrint').onclick = () => window.print();
+
+function renderAll() {
+  renderSummary();
+  renderWorkForm();
+  renderEmpList();
+  renderSettings();
+}
+$('eWage').value = minWageForYear(new Date().getFullYear());
+renderAll();
+</script>
+</body>
+</html>
